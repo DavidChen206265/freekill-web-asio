@@ -250,6 +250,12 @@ void ServerConfig::loadConf(const char* jsonStr) {
   maxPlayersPerDevice = root.value("maxPlayersPerDevice", maxPlayersPerDevice);
   enableWhitelist     = root.value("enableWhitelist", enableWhitelist);
 
+  // Web-only fork 配置(W0)。默认保持上游行为;Web 部署在 config 显式打开/关闭。
+  webOnly                        = root.value("webOnly", webOnly);
+  checkClientMd5                 = root.value("checkClientMd5", checkClientMd5);
+  invalidateRoomsOnPackageChange = root.value("invalidateRoomsOnPackageChange", invalidateRoomsOnPackageChange);
+  tempBanByIp                    = root.value("tempBanByIp", tempBanByIp);
+
   // 兼容一下之前的配置信息
   if (root.value("enableBots", true) == false &&
     std::ranges::find(disabledFeatures, "AddRobot") == disabledFeatures.end())

@@ -27,6 +27,13 @@ struct ServerConfig {
   int roomCountPerThread = 2000;
   int maxPlayersPerDevice = 1000;
 
+  // Web-only fork 配置(默认值保持上游兼容;Web 部署显式反转)。
+  // 见 freekill-web/analysis/WEB_ONLY_ROADMAP.md W0。
+  bool webOnly = false;                        // Web-only 总标志(下发 manifest 等)
+  bool checkClientMd5 = true;                  // false: 登录跳过 flist MD5 校验(W0-1)
+  bool invalidateRoomsOnPackageChange = true;  // false: 改包不踢房/标过期(W0-3)
+  bool tempBanByIp = true;                     // false: 不因中途退出运行局临时封禁 IP(W0-3)
+
   void loadConf(const char *json);
 
   ServerConfig() = default;

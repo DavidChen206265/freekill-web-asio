@@ -252,6 +252,12 @@ bool AuthManager::checkMd5() {
   auto &server = Server::instance();
   auto md5_str = p_ptr->md5;
 
+  // Web-only fork(W0-1):checkClientMd5=false 时跳过 flist MD5 登录校验。
+  // refreshMd5()/calcFileMD5() 仍照常计算,供日志/诊断/manifest 复用。
+  if (!server.config().checkClientMd5) {
+    return true;
+  }
+
   if (server.getMd5() != md5_str) {
     if (auto client = p_ptr->client.lock()) {
       server.sendEarlyPacket(*client, "ErrorMsg", "MD5 check failed!");

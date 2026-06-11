@@ -11,5 +11,11 @@
   ],
   "enableWhitelist": false,
   "roomCountPerThread": 2000,
-  "maxPlayersPerDevice": 50
+  "maxPlayersPerDevice": 50,
+
+  "_comment_webonly": "Web-only fork 配置;默认 false/true 保持上游行为,Web 部署按下方打开",
+  "webOnly": false,
+  "checkClientMd5": true,
+  "invalidateRoomsOnPackageChange": true,
+  "tempBanByIp": true
 }
