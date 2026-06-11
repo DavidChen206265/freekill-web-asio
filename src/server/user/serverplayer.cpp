@@ -251,6 +251,30 @@ void ServerPlayer::reconnect(std::shared_ptr<ClientSocket> client) {
   }
 }
 
+void ServerPlayer::takeoverInLobby(std::shared_ptr<ClientSocket> socket) {
+  // 新连接接管大厅会话(同账号顶号)。先抓住旧 socket —— setSocket 会把旧 socket
+  // 的回调清空,故其后续断开不会再触发本 player 的 onDisconnected。换成新 socket 后
+  // 主动断开旧的,让旧浏览器收到"被顶号"提示。然后重置大厅可见状态并重发设置。
+  // 不创建重复玩家(沿用同一 player),也不走 reconnect 的大厅自踢分支,
+  // 更不调用 emitKicked 的阻塞 dispatch(避免在 auth 线程自我派发死锁)。
+  auto old = m_router->getSocket();
+  m_router->setSocket(socket);
+  setState(Player::Online);
+  setRunned(false);
+  ttl = max_ttl;
+
+  if (old && old.get() != socket.get()) {
+    old->disconnectFromHost("others logged in again with this name");
+  }
+
+  Server::instance().user_manager().setupPlayer(*this, true);
+
+  // 重新把自己加入大厅 → 给新 socket 补发 EnterLobby(addPlayer 幂等,沿用同 connId),
+  // 否则新客户端/网关收不到 EnterLobby 握手收尾,会一直等待而看似卡死。
+  auto lobby = Server::instance().room_manager().lobby().lock();
+  if (lobby) lobby->addPlayer(*this);
+}
+
 void ServerPlayer::startGameTimer() {
   gameTime = 0;
   auto now = system_clock::now();

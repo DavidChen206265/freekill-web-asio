@@ -67,6 +67,10 @@ public:
   Router &getRouter();
   void emitKicked();
   void reconnect(std::shared_ptr<ClientSocket> socket);
+  // Web-only fork(W1-1 A1):同账号在大厅顶号——用新连接接管已在线的大厅会话,
+  // 换 socket 后重置大厅状态,不创建重复玩家、不走会自踢的 reconnect 大厅分支,
+  // 也不触发 emitKicked 的阻塞 dispatch(避免在 auth 线程上自我派发死锁)。
+  void takeoverInLobby(std::shared_ptr<ClientSocket> socket);
 
   void startGameTimer();
   void pauseGameTimer();

@@ -469,13 +469,12 @@ std::map<std::string, std::string> AuthManager::checkPassword() {
   }
 
   if (auto player = um.findPlayer(atoi(obj["id"].c_str())).lock(); player) {
-    // 只要在线就踢 无脑顶号
-    if (player->isOnline()) {
-      player->doNotify("ErrorDlg", "others logged in again with this name");
-      player->emitKicked();
-    }
-
     if (player->insideGame()) {
+      // 局内顶号:踢旧连接后用断线重连机制接管(asio 全量重发房间状态)。
+      if (player->isOnline()) {
+        player->doNotify("ErrorDlg", "others logged in again with this name");
+        player->emitKicked();
+      }
       updateUserLoginData(player->getId());
       spdlog::info("{}[/{}] reconnected (uid={},connid={})",
                    player->getScreenName(), client->peerAddress(), player->getId(), player->getConnId());
@@ -483,6 +482,17 @@ std::map<std::string, std::string> AuthManager::checkPassword() {
       passed = true;
       return {};
     }
+
+    // Web-only fork(W1-1 A1):大厅顶号。旧逻辑在此 emitKicked() 旧会话后 fall through
+    // 去 createNewPlayer 建一个同 uid 的重复玩家,且 emitKicked 的阻塞 dispatch 在
+    // auth 线程上自我派发会死锁 → 新旧都卡死。改为直接用新连接接管同一个大厅 player。
+    if (auto c = p_ptr->client.lock(); c) {
+      updateUserLoginData(player->getId());
+      spdlog::info("{}[/{}] re-logged in lobby, taking over old session (uid={})",
+                   player->getScreenName(), c->peerAddress(), player->getId());
+      player->takeoverInLobby(c);
+    }
+    return {};
   }
 
 FAIL:
