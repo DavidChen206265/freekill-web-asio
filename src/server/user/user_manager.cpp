@@ -9,6 +9,7 @@
 #include "network/client_socket.h"
 #include "network/router.h"
 #include "core/c-wrapper.h"
+#include "core/util.h"
 
 #include <nlohmann/json.hpp>
 
@@ -208,10 +209,21 @@ void UserManager::setupPlayer(ServerPlayer &player, bool all_info) {
     std::vector<std::string> enabledFeatures {
       enabledFeaturesView.begin(), enabledFeaturesView.end() };
 
+    // Web-only fork(W0-2):追加 Web manifest 作为第 4 个数组元素。
+    // 老客户端按 positional 取前 3 个,多出的元素忽略,故向后兼容。
+    json manifest = {
+      { "webOnly", conf.webOnly },
+      { "serverBuild", FK_VERSION },
+      { "assetVersion", Server::instance().getMd5() },  // flist md5 复用作资源版本
+      { "enabledPacks", listEnabledPacks() },
+      { "webFeatures", enabledFeatures },
+    };
+
     auto bin = json::to_cbor({
       conf.motd,
       conf.hiddenPacks,
       enabledFeatures,
+      manifest,
     });
     std::string toSend(bin.begin(), bin.end());
 

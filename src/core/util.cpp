@@ -145,6 +145,41 @@ void writePkgsMD5() {
   }
 }
 
+// Web-only fork(W0-2):枚举实际启用的包供 Web manifest。
+// 与 writePkgsMD5 同源(同样的 .disabled / getDisabledPacks / init.lua 判定),
+// 但这里 *包含* builtins(UI 需要完整启用集),writePkgsMD5 则排除它们(算 flist)。
+std::vector<std::string> listEnabledPacks() {
+  // builtins 始终启用(住在 freekill-core/ 内部,非 packages/ 顶层目录);
+  // test 是测试包,不暴露给 UI。
+  std::vector<std::string> result = { "standard", "standard_cards", "maneuvering" };
+
+  fs::path path("packages");
+  if (!fs::exists(path)) return result;
+
+  auto disabled = PackMan::instance().getDisabledPacks();
+  static const std::set<std::string> builtinPkgs = {
+    "standard", "standard_cards", "maneuvering", "test"
+  };
+
+  std::map<std::string, fs::directory_entry> entries;
+  for (const auto& entry : fs::directory_iterator(path)) {
+    if (entry.is_directory()) {
+      entries.emplace(entry.path().filename().string(), entry);
+    }
+  }
+
+  for (const auto& [filename, entry] : entries) {
+    if (filename.ends_with(".disabled")) continue;
+    if (std::ranges::find(disabled, filename) != disabled.end()) continue;
+    if (builtinPkgs.contains(filename)) continue;
+    // 只收真正的包目录(含 init.lua),与 ModManager:loadPackages 发现条件一致。
+    if (!fs::exists(entry.path() / "init.lua")) continue;
+    result.push_back(filename);
+  }
+
+  return result;
+}
+
 // Main function: generate flist.txt, then return its MD5
 std::string calcFileMD5() {
   const std::string flist_path = "flist.txt";
