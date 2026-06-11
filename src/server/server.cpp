@@ -412,13 +412,18 @@ void Server::_refreshMd5() {
     removeThread(id);
   }
 
-  std::vector<int> to_kick;
-  for (auto &[pConnId, _] : rm.lobby().lock()->getPlayers()) {
-    to_kick.push_back(pConnId);
-  }
-  for (auto pConnId : to_kick) {
-    auto p = m_user_manager->findPlayerByConnId(pConnId).lock();
-    if (p) p->emitKicked();
+  // 包变化后默认把大厅所有人踢下线(让其重连刷新本地包)。Web-only fork(W0-3):
+  // invalidateRoomsOnPackageChange=false 时不踢——Web 客户端资源版本由 manifest
+  // 管理,不需要靠踢下线强制刷新。
+  if (config().invalidateRoomsOnPackageChange) {
+    std::vector<int> to_kick;
+    for (auto &[pConnId, _] : rm.lobby().lock()->getPlayers()) {
+      to_kick.push_back(pConnId);
+    }
+    for (auto pConnId : to_kick) {
+      auto p = m_user_manager->findPlayerByConnId(pConnId).lock();
+      if (p) p->emitKicked();
+    }
   }
 }
 

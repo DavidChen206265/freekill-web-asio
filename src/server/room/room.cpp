@@ -267,7 +267,8 @@ void Room::createRunnedPlayer(ServerPlayer &player, std::shared_ptr<ClientSocket
   runner->doNotify("ChangeSelf", { (char*)buf, buflen });
 
   // 如果走小道的人不是单机启动玩家 且房没过期 那么直接ban
-  if (!isOutdated() && !player.isDied()) {
+  // Web-only fork(W0-3):tempBanByIp=false 时不按 IP 临时封禁(同机共用 IP 场景)。
+  if (Server::instance().config().tempBanByIp && !isOutdated() && !player.isDied()) {
     Server::instance().temporarilyBan(runner->getId());
   }
 }
@@ -379,6 +380,10 @@ void Room::delay(int ms) {
 }
 
 bool Room::isOutdated() {
+  // Web-only fork(W0-3):invalidateRoomsOnPackageChange=false 时房间永不过期。
+  // 在此单点 short-circuit 覆盖所有消费者(开局/退房/gameOver/线程回收/房列表
+  // outdated 标志),且在 md5="" 副作用之前返回,避免散改各调用点。
+  if (!Server::instance().config().invalidateRoomsOnPackageChange) return false;
   bool ret = md5 != Server::instance().getMd5();
   if (ret) md5 = "";
   return ret;
@@ -667,7 +672,8 @@ void Room::_gameOver() {
     // 踢了并非人类，但是注意下面的两个kick不会释放player
     if (!p->isOnline()) {
       if (p->getState() == ServerPlayer::Offline) {
-        if (!isOutdated() && p->isRunned()) {
+        // Web-only fork(W0-3):tempBanByIp=false 时跳过封禁,仍正常踢人。
+        if (Server::instance().config().tempBanByIp && !isOutdated() && p->isRunned()) {
           server.temporarilyBan(p->getId());
         } else {
           p->emitKicked();

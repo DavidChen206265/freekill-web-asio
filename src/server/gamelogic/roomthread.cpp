@@ -185,6 +185,8 @@ int RoomThread::getCapacity() const { return m_capacity; }
 std::string RoomThread::getMd5() const { return md5; }
 
 bool RoomThread::isOutdated() {
+  // Web-only fork(W0-3):见 Room::isOutdated 同款 short-circuit。
+  if (!Server::instance().config().invalidateRoomsOnPackageChange) return false;
   bool ret = md5 != Server::instance().getMd5();
   if (ret) {
     // 让以后每次都outdate
