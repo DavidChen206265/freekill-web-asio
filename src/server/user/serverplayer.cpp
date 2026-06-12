@@ -258,6 +258,16 @@ void ServerPlayer::takeoverInLobby(std::shared_ptr<ClientSocket> socket) {
   // 不创建重复玩家(沿用同一 player),也不走 reconnect 的大厅自踢分支,
   // 更不调用 emitKicked 的阻塞 dispatch(避免在 auth 线程自我派发死锁)。
   auto old = m_router->getSocket();
+
+  // 换 socket 之前,先经旧连接给旧浏览器发一条 ErrorDlg "被顶号"包。Web 端的
+  // 防顶号战争开关(IG-7)只认这条 ErrorDlg 字符串才会停止自动重连;若只靠下面的
+  // disconnectFromHost(那是 TCP 断开原因,不会成包发给浏览器),旧端只见传输层断开
+  // → 自动重连 → 反踢新端,形成无限顶号循环。此时 m_router 仍指向旧 socket,包进旧
+  // socket 的 send_queue,随后的 disconnectFromHost 会先 flush 再关闭,故能送达。
+  if (old && old.get() != socket.get()) {
+    doNotify("ErrorDlg", "others logged in again with this name");
+  }
+
   m_router->setSocket(socket);
   setState(Player::Online);
   setRunned(false);
